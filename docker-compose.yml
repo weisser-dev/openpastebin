@@ -1,0 +1,71 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: openpastebin-mongodb
+    restart: unless-stopped
+    command: ["mongod", "--quiet", "--logpath", "/dev/null"]
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=openpastebin
+    networks:
+      - pastebin-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/openpastebin --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "none"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: openpastebin-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"  # Expose for local testing - can be removed for production with reverse proxy
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - MONGO_URI=mongodb://mongodb:27017/openpastebin
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - pastebin-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "none"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: openpastebin-frontend
+    restart: unless-stopped
+    # Port 80 only internal - Caddy handles external access as reverse proxy
+    depends_on:
+      - backend
+    networks:
+      - pastebin-network
+      - caddy-net
+    logging:
+      driver: "none"
+
+volumes:
+  mongodb_data:
+    driver: local
+
+networks:
+  pastebin-network:
+    driver: bridge
+  caddy-net:
+    external: true

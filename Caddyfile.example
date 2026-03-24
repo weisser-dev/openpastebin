@@ -1,0 +1,29 @@
+paste.weisser.dev {
+    # Automatic HTTPS with Let's Encrypt
+
+    # Reverse proxy to the frontend container
+    reverse_proxy openpastebin-frontend:80
+
+    # Security headers
+    header {
+        # Enable HSTS
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        # Prevent clickjacking
+        X-Frame-Options "SAMEORIGIN"
+        # Prevent MIME sniffing
+        X-Content-Type-Options "nosniff"
+        # XSS Protection
+        X-XSS-Protection "1; mode=block"
+        # Referrer Policy
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    # Gzip compression
+    encode gzip zstd
+
+    # Logging (optional)
+    log {
+        output file /var/log/caddy/paste.weisser.dev.log
+        format json
+    }
+}
