@@ -514,10 +514,10 @@ function App() {
       return
     }
 
-    // Validate file size (5MB max)
-    const maxSize = 5 * 1024 * 1024
+    // Validate file size (10MB max)
+    const maxSize = 10 * 1024 * 1024
     if (file.size > maxSize) {
-      setError('File size exceeds 5MB limit')
+      setError('File size exceeds 10MB limit')
       return
     }
 
