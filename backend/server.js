@@ -84,7 +84,7 @@ const Paste = mongoose.model('Paste', pasteSchema);
 // Configure multer for file uploads
 const storage = multer.memoryStorage();
 
-// File type filter - only programming/text files
+// File type filter - only programming/text files and archives
 const fileFilter = (req, file, cb) => {
   const allowedExtensions = [
     '.js', '.jsx', '.ts', '.tsx', '.json',
@@ -94,7 +94,8 @@ const fileFilter = (req, file, cb) => {
     '.xml', '.yml', '.yaml', '.toml', '.ini',
     '.sql', '.sh', '.bash', '.zsh',
     '.txt', '.md', '.markdown', '.log',
-    '.env', '.gitignore', '.dockerfile'
+    '.env', '.gitignore', '.dockerfile',
+    '.zip'
   ];
 
   const fileExtension = '.' + file.originalname.split('.').pop().toLowerCase();
@@ -102,13 +103,13 @@ const fileFilter = (req, file, cb) => {
   if (allowedExtensions.includes(fileExtension)) {
     cb(null, true);
   } else {
-    cb(new Error('File type not allowed. Only programming/text files are supported.'), false);
+    cb(new Error('File type not allowed. Only programming/text files and archives are supported.'), false);
   }
 };
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
   fileFilter: fileFilter
 });
 
@@ -473,9 +474,15 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const { expiresValue, expiresUnit } = req.body;
+    const { expiresValue, expiresUnit, password, maxViews } = req.body;
     const expiresMs = calculateExpirationMs(expiresValue || 15, expiresUnit || 'minutes', true);
     const expiresAt = new Date(Date.now() + expiresMs);
+
+    // Handle password hashing if provided
+    let hashedPassword = null;
+    if (password && password.trim()) {
+      hashedPassword = await bcrypt.hash(password, 10);
+    }
 
     const id = nanoid(8);
 
@@ -489,6 +496,8 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       type: 'file',
       fileName: req.file.originalname,
       mimeType: req.file.mimetype,
+      password: hashedPassword,
+      maxViews: maxViews ? parseInt(maxViews) : null,
       expiresAt
     });
 

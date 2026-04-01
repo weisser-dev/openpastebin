@@ -521,7 +521,7 @@ function App() {
       return
     }
 
-    // Validate file type - only programming/text files
+    // Validate file type - only programming/text files and archives
     const allowedExtensions = [
       '.js', '.jsx', '.ts', '.tsx', '.json',
       '.py', '.java', '.c', '.cpp', '.h', '.hpp',
@@ -530,12 +530,13 @@ function App() {
       '.xml', '.yml', '.yaml', '.toml', '.ini',
       '.sql', '.sh', '.bash', '.zsh',
       '.txt', '.md', '.markdown', '.log',
-      '.env', '.gitignore', '.dockerfile'
+      '.env', '.gitignore', '.dockerfile',
+      '.zip'
     ]
 
     const fileExtension = '.' + file.name.split('.').pop().toLowerCase()
     if (!allowedExtensions.includes(fileExtension)) {
-      setError(`File type not allowed. Only programming files are supported: ${allowedExtensions.slice(0, 10).join(', ')}...`)
+      setError(`File type not allowed. Only programming files and archives are supported: ${allowedExtensions.slice(0, 10).join(', ')}...`)
       return
     }
 
@@ -547,6 +548,8 @@ function App() {
     formData.append('file', file)
     formData.append('expiresValue', expiresValue)
     formData.append('expiresUnit', expiresUnit)
+    if (password) formData.append('password', password)
+    if (maxViews) formData.append('maxViews', maxViews)
 
     try {
       const response = await axios.post('/api/upload', formData, {
@@ -557,6 +560,8 @@ function App() {
 
       setResult(response.data)
       setFile(null)
+      setPassword('')
+      setMaxViews(null)
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to upload file')
     } finally {
@@ -1429,6 +1434,35 @@ function App() {
                     <option value="minutes">Minutes</option>
                     <option value="hours">Hours (max 24)</option>
                     <option value="days">Days (max 1)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>View Password (optional)</label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Protect with password..."
+                  />
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+                    Required to view/download the file
+                  </p>
+                </div>
+
+                <div className="form-group">
+                  <label>Max Views (Burn After Read)</label>
+                  <select
+                    value={maxViews || ''}
+                    onChange={(e) => setMaxViews(e.target.value ? e.target.value : null)}
+                  >
+                    <option value="">Unlimited</option>
+                    <option value="1">1 View (Burn After Read)</option>
+                    <option value="2">2 Views (Test + Share)</option>
+                    <option value="5">5 Views</option>
+                    <option value="10">10 Views</option>
                   </select>
                 </div>
               </div>
