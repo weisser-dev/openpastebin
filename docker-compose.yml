@@ -38,7 +38,9 @@ services:
     networks:
       - pastebin-network
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5000/api/health"]
+      # 127.0.0.1, not localhost: that also resolves to ::1, which wget tries
+      # first, while the server binds IPv4 only - the check failed permanently.
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:5000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
