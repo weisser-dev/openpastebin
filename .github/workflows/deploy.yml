@@ -1,0 +1,152 @@
+name: Deploy OpenPasteBin
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'docker-compose.yml'
+      - '.env.example'
+      - '.github/workflows/deploy.yml'
+
+concurrency:
+  group: deploy-openpastebin
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      # Server layout
+      DEPLOY_DIR: /opt/openpastebin
+      PROJECT: openpastebin
+      BACKUP_DIR: /opt/backups/openpastebin
+      MONGO_SERVICE: mongodb
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # No lockfiles are committed (see .gitignore), so `npm install` instead of `npm ci`.
+      - name: Validate backend dependencies
+        working-directory: backend
+        run: npm install --omit=dev
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install
+
+      - name: Run frontend tests
+        working-directory: frontend
+        run: npx vitest run
+
+      - name: Validate frontend build
+        working-directory: frontend
+        run: npm run build
+
+      - name: Create deployment archive
+        run: |
+          tar czf openpastebin-deploy.tgz \
+            --exclude=node_modules \
+            --exclude=dist \
+            backend frontend docker-compose.yml .env.example
+
+      - name: Upload bundle to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          source: "openpastebin-deploy.tgz"
+          target: "/tmp"
+
+      - name: Deploy on server with MongoDB backup
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DEPLOY_DIR: ${{ env.DEPLOY_DIR }}
+          PROJECT: ${{ env.PROJECT }}
+          BACKUP_DIR: ${{ env.BACKUP_DIR }}
+          MONGO_SERVICE: ${{ env.MONGO_SERVICE }}
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          envs: DEPLOY_DIR,PROJECT,BACKUP_DIR,MONGO_SERVICE
+          script: |
+            set -e
+
+            # ---- Guard: .env holds ENCRYPTION_KEY; losing it makes every existing paste unrecoverable ----
+            if [ ! -f "$DEPLOY_DIR/.env" ]; then
+              echo "ERROR: $DEPLOY_DIR/.env not found."
+              echo "Create it on the server from .env.example (incl. a persistent ENCRYPTION_KEY) before deploying."
+              exit 1
+            fi
+
+            # ---- MongoDB backup (skip if the stack was never up) ----
+            if sudo docker compose -p "$PROJECT" ps --status running --services 2>/dev/null | grep -qx "$MONGO_SERVICE"; then
+              echo "Creating MongoDB backup (mongodump --archive --gzip)…"
+              sudo mkdir -p "$BACKUP_DIR"
+              TS=$(date +"%Y%m%d_%H%M%S")
+              sudo sh -c "docker compose -p '$PROJECT' exec -T '$MONGO_SERVICE' mongodump --archive --gzip --db=openpastebin > '$BACKUP_DIR/openpastebin_${TS}.archive.gz'"
+
+              # Keep last 5 backups
+              cd "$BACKUP_DIR"
+              ls -1t openpastebin_*.archive.gz 2>/dev/null | tail -n +6 | xargs -r rm -f || true
+              cd - >/dev/null
+              echo "Backup completed: $BACKUP_DIR/openpastebin_${TS}.archive.gz"
+            else
+              echo "MongoDB service not running — skipping backup."
+            fi
+
+            # ---- Stop the old stack (named volume openpastebin_mongodb_data survives: no -v) ----
+            if [ -f "$DEPLOY_DIR/docker-compose.yml" ]; then
+              ( cd "$DEPLOY_DIR" && sudo docker compose -p "$PROJECT" down --remove-orphans ) || true
+            fi
+
+            # ---- Stage out server-local state, replace deploy dir ----
+            STAGING="$(mktemp -d)"
+            sudo cp "$DEPLOY_DIR/.env" "$STAGING/.env"
+
+            sudo rm -rf "$DEPLOY_DIR"
+            sudo mkdir -p "$DEPLOY_DIR"
+            sudo tar xzf /tmp/openpastebin-deploy.tgz -C "$DEPLOY_DIR"
+            sudo cp "$STAGING/.env" "$DEPLOY_DIR/.env"
+            sudo chmod 600 "$DEPLOY_DIR/.env"
+            sudo rm -rf "$STAGING"
+            sudo rm -f /tmp/openpastebin-deploy.tgz
+
+            # ---- Bring the stack back up ----
+            cd "$DEPLOY_DIR"
+            sudo -E docker compose -p "$PROJECT" up -d --build --remove-orphans
+
+            # ---- Health check ----
+            echo "Waiting for backend health…"
+            for i in $(seq 1 30); do
+              if curl -fsS http://localhost:5000/api/health >/dev/null 2>&1; then
+                echo "Backend healthy after ${i} attempt(s)."
+                break
+              fi
+              if [ "$i" -eq 30 ]; then
+                echo "ERROR: backend did not become healthy."
+                sudo docker compose -p "$PROJECT" ps
+                sudo docker logs --tail 100 openpastebin-backend || true
+                exit 1
+              fi
+              sleep 2
+            done
+
+            if ! sudo docker compose -p "$PROJECT" ps --status running --services | grep -qx frontend; then
+              echo "ERROR: frontend container is not running."
+              sudo docker compose -p "$PROJECT" ps
+              exit 1
+            fi
+
+            sudo docker image prune -f
+            echo "Deployment completed successfully!"

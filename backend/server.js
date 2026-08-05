@@ -2,13 +2,21 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const multer = require('multer');
-const { nanoid } = require('nanoid');
+const { customAlphabet } = require('nanoid');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// ID alphabet without look-alike characters, so URLs stay unambiguous when
+// retyped or read aloud regardless of font. Dropped: 0 and O (kept: o),
+// 1, l and I (kept: L and i, which are no longer ambiguous once the others
+// are gone). 57 chars over 8 positions still gives ~46 bits of entropy.
+// Existing IDs keep working - this only affects newly generated ones.
+const ID_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+const nanoid = customAlphabet(ID_ALPHABET, 8);
 
 // Encryption key from environment - 32 bytes for AES-256
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex');
@@ -751,6 +759,23 @@ app.get('/api/stats', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: 'Failed to get stats' });
   }
+});
+
+// Upload error handler - multer rejects (size limit, file type) before the route
+// runs, so without this they fall through to Express' default HTML 500 page.
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ error: 'File too large. Maximum size is 10MB.' });
+    }
+    return res.status(400).json({ error: 'File upload failed.' });
+  }
+
+  if (err) {
+    return res.status(400).json({ error: err.message || 'File upload failed.' });
+  }
+
+  next();
 });
 
 app.listen(PORT, '0.0.0.0');

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import App from './App'
 
 describe('App Component', () => {
@@ -58,8 +58,12 @@ describe('App Component', () => {
     expect(splitCheckbox).toBeTruthy()
   })
 
-  it('shows prettify button', () => {
+  // The button only renders once content is present and a language was
+  // detected, so the content has to be entered first.
+  it('shows prettify button once content has a detected language', () => {
     render(<App />)
+    const textarea = screen.getByPlaceholderText(/Paste your text or code here/i)
+    fireEvent.change(textarea, { target: { value: '{"a":1}' } })
     const prettifyBtn = screen.getByText(/Prettify/i)
     expect(prettifyBtn).toBeTruthy()
   })
