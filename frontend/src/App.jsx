@@ -531,7 +531,7 @@ function App() {
       '.sql', '.sh', '.bash', '.zsh',
       '.txt', '.md', '.markdown', '.log',
       '.env', '.gitignore', '.dockerfile',
-      '.zip'
+      '.zip', '.gz'
     ]
 
     const fileExtension = '.' + file.name.split('.').pop().toLowerCase()
