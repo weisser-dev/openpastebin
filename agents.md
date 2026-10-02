@@ -223,3 +223,9 @@ All planned features have been implemented. The project is now production-ready 
 - Caddy provides HTTPS/SSL termination
 - MongoDB data persists in Docker volume
 - All services are in `unless-stopped` restart mode
+
+## Produktiv-Deployment (seit 2026-10-02, Proxmox docker-host)
+- Laeuft in LXC 110 unter `/opt/openpastebin` (Runner `actions.runner.weisser-dev-openpastebin.docker-host-paste`, Push auf `main` deployed).
+- MongoDB: gemeinsames Replica-Set (Netz `db-net`, DB/User `openpastebin`); es gibt keinen eigenen Mongo-Container mehr. `MONGO_URI` + `ENCRYPTION_KEY` nur in `/opt/openpastebin/.env` auf dem Server.
+- Caddy-Sites liegen in `server-essentials` (`sites/public/paste.weisser.caddy`), Container haengen in `caddy-public`.
+- Der alte Hetzner-Stack ist gestoppt (nur Rueckweg). Die Abschnitte oben zu lokalem Mongo-Container gelten nicht mehr.

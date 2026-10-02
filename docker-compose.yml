@@ -1,42 +1,22 @@
+# Deployment auf dem Proxmox-docker-host (LXC 110).
+# MongoDB: gemeinsames Replica-Set aus server-essentials (Netz db-net, DB "openpastebin").
+# MONGO_URI + ENCRYPTION_KEY stehen nur in /opt/openpastebin/.env auf dem Server.
 services:
-  mongodb:
-    image: mongo:7
-    container_name: openpastebin-mongodb
-    restart: unless-stopped
-    command: ["mongod", "--quiet", "--logpath", "/dev/null"]
-    volumes:
-      - mongodb_data:/data/db
-    environment:
-      - MONGO_INITDB_DATABASE=openpastebin
-    networks:
-      - pastebin-network
-    healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/openpastebin --quiet
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    logging:
-      driver: "none"
-
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: openpastebin-backend
     restart: unless-stopped
-    ports:
-      - "5000:5000"  # Expose for local testing - can be removed for production with reverse proxy
     env_file:
       - .env
     environment:
       - NODE_ENV=production
       - PORT=5000
-      - MONGO_URI=mongodb://mongodb:27017/openpastebin
-    depends_on:
-      mongodb:
-        condition: service_healthy
     networks:
       - pastebin-network
+      - db-net
+      - caddy-public
     healthcheck:
       # 127.0.0.1, not localhost: that also resolves to ::1, which wget tries
       # first, while the server binds IPv4 only - the check failed permanently.
@@ -53,21 +33,19 @@ services:
       dockerfile: Dockerfile
     container_name: openpastebin-frontend
     restart: unless-stopped
-    # Port 80 only internal - Caddy handles external access as reverse proxy
+    # Port 80 nur intern - Caddy (caddy-public) liefert aus
     depends_on:
       - backend
     networks:
       - pastebin-network
-      - caddy-net
+      - caddy-public
     logging:
       driver: "none"
-
-volumes:
-  mongodb_data:
-    driver: local
 
 networks:
   pastebin-network:
     driver: bridge
-  caddy-net:
+  caddy-public:
+    external: true
+  db-net:
     external: true
