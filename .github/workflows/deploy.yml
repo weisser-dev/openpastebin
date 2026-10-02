@@ -21,7 +21,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Guard .env
-        run: test -f /opt/openpastebin/.env || { echo "ERROR: /opt/openpastebin/.env fehlt (ENCRYPTION_KEY!)"; exit 1; }
+        run: |
+          test -f /opt/openpastebin/.env || { echo "FEHLER .env fehlt (ENCRYPTION_KEY)"; exit 1; }
 
       - name: Ensure shared networks exist
         run: |
@@ -44,7 +45,8 @@ jobs:
             if docker exec openpastebin-backend wget -qO- http://127.0.0.1:5000/api/health >/dev/null 2>&1; then echo healthy; exit 0; fi
             sleep 2
           done
-          docker logs --tail 50 openpastebin-backend; exit 1
+          docker logs --tail 50 openpastebin-backend
+          exit 1
 
       - name: Prune unused images
         run: docker image prune -f
