@@ -1,16 +1,18 @@
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
-RUN npm install
+RUN npm ci
 
 COPY . .
 
 RUN npm run build
 
 FROM nginx:alpine
+
+RUN apk upgrade --no-cache
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 
