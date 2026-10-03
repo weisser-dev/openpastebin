@@ -40,7 +40,8 @@ jobs:
       - name: Build & deploy
         run: |
           cd /opt/openpastebin
-          docker compose -p openpastebin up -d --build --remove-orphans --force-recreate
+          flock /tmp/heavy.lock docker compose -p openpastebin build
+          docker compose -p openpastebin up -d --no-build --remove-orphans --force-recreate
 
       - name: Health check
         run: |
