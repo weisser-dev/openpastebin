@@ -1,8 +1,11 @@
 name: Deploy OpenPasteBin
 
 # Self-hosted Runner im docker-host (LXC 110), deployed nach /opt/openpastebin.
-# MongoDB = gemeinsames Replica-Set (server-essentials), Backup macht dort mongodb-backup.yml.
+# MongoDB = gemeinsames Replica-Set (server-essentials), Backup macht dort backup.yml (taegliches NAS-Backup aller DBs).
 # /opt/openpastebin/.env (MONGO_URI, ENCRYPTION_KEY) liegt nur auf dem Server.
+
+permissions:
+  contents: read
 
 on:
   workflow_dispatch:
