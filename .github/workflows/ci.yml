@@ -1,0 +1,43 @@
+name: CI
+
+# Lean build/test gate for pull requests (incl. Dependabot). Runs on the repo's self-hosted
+# runner inside a throwaway pinned container; no secrets, no deploy.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: ci
+    runs-on: self-hosted
+    timeout-minutes: 30
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Build and test
+        run: |
+          /usr/local/bin/heavy-gate --weight 1 --name ci-openpastebin -- \
+            docker run --rm --user "$(id -u):$(id -g)" \
+              -e HOME=/tmp -e CI=true -e npm_config_cache=/tmp/.npm \
+              -v "$GITHUB_WORKSPACE:/work" -w /work \
+              node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 sh -ec '
+            cd backend
+            npm ci --ignore-scripts
+            node --check server.js
+            cd ../frontend
+            npm ci --ignore-scripts
+            npx vitest run
+            npm run build
+              '
