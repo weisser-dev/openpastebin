@@ -5,7 +5,7 @@ const multer = require('multer');
 const { customAlphabet } = require('nanoid');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 
 const app = express();
 const PORT = process.env.PORT || 5000;
