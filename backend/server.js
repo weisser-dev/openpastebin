@@ -285,7 +285,7 @@ const generateCustomId = async (customUrl) => {
 // Create paste
 app.post('/api/paste', async (req, res) => {
   try {
-    const { content, title, type, language, expiresValue, expiresUnit, password, isSplit, maxViews, customUrl, allowEdit, editPassword } = req.body;
+    const { content, title, type, language, expiresValue, expiresUnit, password, isSplit, maxViews, customUrl, allowEdit, editPassword } = req.body ?? {};
 
     if (!content) {
       return res.status(400).json({ error: 'Content is required' });
@@ -417,7 +417,7 @@ app.post('/api/paste', async (req, res) => {
 app.put('/api/paste/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { content, title, editPassword } = req.body;
+    const { content, title, editPassword } = req.body ?? {};
 
     if (!content) {
       return res.status(400).json({ error: 'Content is required' });
@@ -482,7 +482,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const { expiresValue, expiresUnit, password, maxViews } = req.body;
+    const { expiresValue, expiresUnit, password, maxViews } = req.body ?? {};
     const expiresMs = calculateExpirationMs(expiresValue || 15, expiresUnit || 'minutes', true);
     const expiresAt = new Date(Date.now() + expiresMs);
 
@@ -619,7 +619,7 @@ app.get('/api/paste/:id', async (req, res) => {
 app.post('/api/paste/:id/verify', async (req, res) => {
   try {
     const { id } = req.params;
-    const { password } = req.body;
+    const { password } = req.body ?? {};
 
     const paste = await Paste.findOne({ id });
 
