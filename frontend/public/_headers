@@ -1,0 +1,10 @@
+# HTML must always be revalidated (ETag => usually a cheap 304).
+/*
+  Cache-Control: no-cache
+  X-Frame-Options: SAMEORIGIN
+  X-Content-Type-Options: nosniff
+
+# Hashed build output is immutable.
+/assets/*
+  ! Cache-Control
+  Cache-Control: public, max-age=31536000, immutable

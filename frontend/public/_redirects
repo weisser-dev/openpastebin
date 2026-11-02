@@ -1,0 +1,2 @@
+# SPA fallback (the API lives on a separate host, see VITE_API_BASE)
+/* /index.html 200

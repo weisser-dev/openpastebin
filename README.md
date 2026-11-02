@@ -312,6 +312,27 @@ docker-compose up -d
 
 The frontend container will automatically join the `caddy-net` network and be accessible to Caddy. HTTPS is automatically configured by Caddy.
 
+### With Cloudflare Pages (frontend) and the backend elsewhere
+
+The frontend is a static SPA and can be hosted on Cloudflare Pages. The backend keeps running on
+your own server under its own hostname (for example `api.paste.example.org`); the backend already
+answers cross-origin requests (`cors()`), so no proxy is needed.
+
+| Setting | Value |
+|---|---|
+| Production branch | `main` |
+| Root directory | `frontend` |
+| Build command | `npm ci && npm run build` |
+| Build output directory | `dist` |
+| `NODE_VERSION` | `22` |
+| `VITE_API_BASE` | `https://api.paste.example.org` (build-time, no trailing slash; leave unset for same-origin behind nginx) |
+
+`public/_redirects` (SPA fallback) and `public/_headers` (`no-cache` for HTML, `immutable` for
+`/assets/*`) are copied into `dist`. The backend hostname must stay reachable over HTTPS and
+forward `/api/*` to the backend container (port 5000). Uploads (up to 10 MB) go directly from the
+browser to that host, not through Pages. The nginx container image is only needed for the
+self-hosted setup.
+
 ### With Nginx
 
 For deployment behind Nginx:
