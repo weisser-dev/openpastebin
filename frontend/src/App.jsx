@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
+import { apiUrl } from './apiBase'
 import hljs from 'highlight.js/lib/core'
 import javascript from 'highlight.js/lib/languages/javascript'
 import typescript from 'highlight.js/lib/languages/typescript'
@@ -601,7 +602,7 @@ function App() {
 
   const downloadFile = async () => {
     if (!pasteData) return
-    window.open(`/api/raw/${pasteData.id}`, '_blank')
+    window.open(apiUrl(`/api/raw/${pasteData.id}`), '_blank')
   }
 
   const formatDate = (dateString) => {
@@ -792,7 +793,7 @@ function App() {
                     <button type="button" onClick={() => copyToClipboard(pasteData.content)}>
                       Copy Content
                     </button>
-                    <button type="button" onClick={() => window.open(`/api/raw/${pasteData.id}`, '_blank')}>
+                    <button type="button" onClick={() => window.open(apiUrl(`/api/raw/${pasteData.id}`), '_blank')}>
                       View Raw
                     </button>
                     {pasteData.type === 'file' && (
